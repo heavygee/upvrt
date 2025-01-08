@@ -81,6 +81,35 @@ Copy `.env.example` to `.env` and configure the following variables:
 - `TARGET_SIZE_MB`: Target size for compressed videos (default: 9.5MB)
 - `MAX_UPLOAD_SIZE_MB`: Maximum upload size allowed (default: 1000MB)
 
+#### Progress Chart Customization
+You can customize the progress chart appearance through environment variables:
+- `PROGRESS_UPLOAD_PERCENT`: Percentage allocated to initial file upload (default: 50)
+- `PROGRESS_PROCESS_PERCENT`: Percentage allocated to video processing (default: 45)
+- `PROGRESS_POST_PERCENT`: Percentage allocated to Discord upload (default: 5)
+- `PROGRESS_CHART_SIZE`: Size of the chart in pixels (default: 200)
+- `PROGRESS_CHART_CUTOUT`: Center cutout percentage (default: 15)
+- `PROGRESS_CHART_OPACITY`: Opacity of progress segments, 0.0-1.0 (default: 0.9)
+
+Example in docker-compose.yml:
+```yaml
+services:
+  upvrt:
+    image: heavygee/upvrt:latest
+    # Optional: Override the default command
+    # command: gunicorn --bind 0.0.0.0:7001 wsgi:app
+    environment:
+      - PROGRESS_UPLOAD_PERCENT=50
+      - PROGRESS_PROCESS_PERCENT=45
+      - PROGRESS_POST_PERCENT=5
+      - PROGRESS_CHART_SIZE=200
+      - PROGRESS_CHART_CUTOUT=15
+      - PROGRESS_CHART_OPACITY=0.9
+    volumes:
+      - /path/to/your/videos:/app/uploads
+    ports:
+      - "7001:7001"
+```
+
 ## Discord Bot Setup
 
 Follow these steps to set up your Discord bot:

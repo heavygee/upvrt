@@ -7,7 +7,7 @@
 4. Commit and push with a descriptive message
 5. Deploy changes:
    - For local production: `docker-compose build upvrt && docker-compose restart upvrt`
-   - For remote production: Wait for GitHub Actions to publish the image
+   - For remote production: Wait for GitHub Actions to publish the image to DockerHub
    
 # Important: ALWAYS run the local deployment step after pushing to GitHub
 # This ensures the local container at port 7001 is running the same code that was just pushed
@@ -20,4 +20,4 @@
 # 3. Commit with message "Fix case typo in server name (IntroVRT -> IntroVRt)"
 # 4. Push to GitHub
 # 5. Rebuild and restart local container immediately
-# 6. Monitor workflows for remote deployment 
+# 6. Wait for GitHub Actions to publish to DockerHub 

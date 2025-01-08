@@ -9,4 +9,6 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install -r requirements.txt gunicorn
 COPY . .
-# CMD is overridden by docker-compose command 
+
+# Default command (can be overridden in docker-compose.yml)
+CMD ["gunicorn", "--bind", "0.0.0.0:7001", "wsgi:app"] 

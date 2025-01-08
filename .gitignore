@@ -53,6 +53,13 @@ htmlcov/
 # Local development files
 symlink-docker-compose.yml
 discordprep.sh
+config.ini
+*.local.yml
+*.local.ini
 
 # Keep documentation images
 !docs/images/*.png
+
+# System files
+.DS_Store
+Thumbs.db
