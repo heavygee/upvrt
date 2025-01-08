@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     ports:
       - "7001:7001"
-    command: gunicorn --bind 0.0.0.0:7001 wsgi:app
+    command: python -u -m gunicorn --bind 0.0.0.0:7001 --access-logfile=- --error-logfile=- --log-level=info --capture-output wsgi:app
     volumes:
       - ./uploads:/app/uploads
       - ./assets:/app/assets
