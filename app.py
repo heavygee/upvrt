@@ -13,6 +13,7 @@ import uuid
 import re
 import json
 import configparser
+from version import VERSION
 
 load_dotenv()
 
@@ -331,7 +332,8 @@ def dashboard():
     
     return render_template('dashboard.html', 
                          channels=text_channels,
-                         progress_config=PROGRESS_CONFIG)
+                         progress_config=PROGRESS_CONFIG,
+                         version=VERSION)
 
 @app.route('/upvrt/progress/<task_id>')
 @login_required
