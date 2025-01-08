@@ -17,6 +17,16 @@ from version import VERSION
 
 load_dotenv()
 
+def get_latest_commit_message():
+    try:
+        result = subprocess.run(['git', 'log', '-1', '--pretty=format:%s'], 
+                              capture_output=True, text=True, check=True)
+        return result.stdout
+    except:
+        return "Development build"
+
+COMMIT_MESSAGE = get_latest_commit_message()
+
 # Get progress settings from environment variables
 PROGRESS_CONFIG = {
     'upload_percent': float(os.getenv('PROGRESS_UPLOAD_PERCENT', 50.0)),
@@ -246,7 +256,7 @@ def load_user(user_id):
 
 @app.route('/upvrt/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=VERSION, commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/login')
 def login():
@@ -255,17 +265,17 @@ def login():
     session['next_url'] = next_url
     
     oauth_url = f'https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={DISCORD_REDIRECT_URI}&response_type=code&scope=identify%20guilds%20guilds.members.read'
-    return render_template('login.html', oauth_url=oauth_url)
+    return render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/callback')
 def callback():
     error = request.args.get('error')
     if error:
-        return render_template('callback.html', success=False, error=error)
+        return render_template('callback.html', success=False, error=error, version=VERSION, commit_message=COMMIT_MESSAGE)
         
     code = request.args.get('code')
     if not code:
-        return render_template('callback.html', success=False, error='No authorization code received')
+        return render_template('callback.html', success=False, error='No authorization code received', version=VERSION, commit_message=COMMIT_MESSAGE)
         
     try:
         data = {
@@ -300,7 +310,9 @@ def callback():
         if not any(g['id'] == GUILD_ID for g in guilds):
             return render_template('callback.html', 
                                 success=False, 
-                                error="You must be a member of the IntroVRT Lounge Discord server to use this application.")
+                                error="You must be a member of the IntroVRT Lounge Discord server to use this application.",
+                                version=VERSION,
+                                commit_message=COMMIT_MESSAGE)
         
         session['user_data'] = user_data
         session['discord_token'] = access_token
@@ -308,13 +320,15 @@ def callback():
         user = User(user_data['id'], user_data['username'], user_data.get('discriminator', '0'), user_data.get('avatar'))
         login_user(user, remember=True, duration=timedelta(hours=24))
         
-        return render_template('callback.html', success=True)
+        return render_template('callback.html', success=True, version=VERSION, commit_message=COMMIT_MESSAGE)
         
     except requests.exceptions.RequestException as e:
         print(f"OAuth error: {str(e)}")
         return render_template('callback.html', 
                             success=False, 
-                            error="Failed to authenticate with Discord. Please try again.")
+                            error="Failed to authenticate with Discord. Please try again.",
+                            version=VERSION,
+                            commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/dashboard')
 @login_required
@@ -333,7 +347,8 @@ def dashboard():
     return render_template('dashboard.html', 
                          channels=text_channels,
                          progress_config=PROGRESS_CONFIG,
-                         version=VERSION)
+                         version=VERSION,
+                         commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/progress/<task_id>')
 @login_required
@@ -431,11 +446,17 @@ def upload_video():
 
 @app.route('/upvrt/tos')
 def tos():
-    return render_template('tos.html', current_date=datetime.now().strftime('%B %d, %Y'))
+    return render_template('tos.html', 
+                         current_date=datetime.now().strftime('%B %d, %Y'),
+                         version=VERSION,
+                         commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/privacy')
 def privacy():
-    return render_template('privacy.html', current_date=datetime.now().strftime('%B %d, %Y'))
+    return render_template('privacy.html', 
+                         current_date=datetime.now().strftime('%B %d, %Y'),
+                         version=VERSION,
+                         commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/health')
 def health_check():
