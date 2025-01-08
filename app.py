@@ -1,5 +1,5 @@
 import os
-from flask import Flask, redirect, request, url_for, session, render_template, jsonify, make_response, Response
+from flask import Flask, redirect, request, url_for, session, render_template, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
 from flask_cors import CORS
 import requests
@@ -68,18 +68,11 @@ class FFmpegProgress:
         self.error = error
         self.stage = 'failed'
 
-class VersionedResponse(Response):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.headers['X-UpVRt-Version'] = VERSION
-
 app = Flask(__name__)
-app.response_class = VersionedResponse
 CORS(app, resources={
     r"/upvrt/*": {
         "origins": ["https://www.introvrtlounge.com"],
-        "supports_credentials": True,
-        "expose_headers": ["X-UpVRt-Version"]
+        "supports_credentials": True
     }
 })
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -96,12 +89,6 @@ app.config['REMEMBER_COOKIE_SECURE'] = True
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(hours=24)
 app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
-
-@app.after_request
-def add_version_header(response):
-    response.headers['X-UpVRt-Version'] = VERSION
-    response.headers.add('Access-Control-Expose-Headers', 'X-UpVRt-Version')
-    return response
 
 @app.before_request
 def before_request():
@@ -278,9 +265,7 @@ def login():
     session['next_url'] = next_url
     
     oauth_url = f'https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={DISCORD_REDIRECT_URI}&response_type=code&scope=identify%20guilds%20guilds.members.read'
-    response = make_response(render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE))
-    response.headers['X-UpVRt-Version'] = VERSION
-    return response
+    return render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE)
 
 @app.route('/upvrt/callback')
 def callback():
@@ -476,9 +461,11 @@ def privacy():
 @app.route('/upvrt/health')
 def health_check():
     """Health check endpoint"""
-    response = make_response('ok')
-    response.headers['X-UpVRt-Version'] = VERSION
-    return response
+    return jsonify({
+        'status': 'ok',
+        'version': VERSION,
+        'commit': COMMIT_MESSAGE
+    })
 
 if __name__ == '__main__':
     app.run(debug=True) 
