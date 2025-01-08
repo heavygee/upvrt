@@ -470,7 +470,9 @@ def privacy():
 @app.route('/upvrt/health')
 def health_check():
     """Health check endpoint"""
-    return 'ok'
+    response = make_response('ok')
+    response.headers['X-UpVRt-Version'] = VERSION
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True) 
