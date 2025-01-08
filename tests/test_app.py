@@ -4,12 +4,13 @@ from app import app
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
+    app.config['LOGIN_DISABLED'] = True  # Disable login requirement for testing
     with app.test_client() as client:
         yield client
 
 def test_index_route(client):
     """Test the index route returns 200"""
-    rv = client.get('/')
+    rv = client.get('/upvrt/')  # Updated to use correct route
     assert rv.status_code == 200
 
 def test_health_check(client):
