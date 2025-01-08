@@ -1,5 +1,5 @@
 import os
-from flask import Flask, redirect, request, url_for, session, render_template, jsonify, make_response
+from flask import Flask, redirect, request, url_for, session, render_template, jsonify, make_response, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
 from flask_cors import CORS
 import requests
@@ -68,7 +68,13 @@ class FFmpegProgress:
         self.error = error
         self.stage = 'failed'
 
+class VersionedResponse(Response):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.headers['X-UpVRt-Version'] = VERSION
+
 app = Flask(__name__)
+app.response_class = VersionedResponse
 CORS(app, resources={
     r"/upvrt/*": {
         "origins": ["https://www.introvrtlounge.com"],
