@@ -1,5 +1,5 @@
 import os
-from flask import Flask, redirect, request, url_for, session, render_template, jsonify
+from flask import Flask, redirect, request, url_for, session, render_template, jsonify, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
 from flask_cors import CORS
 import requests
@@ -462,6 +462,12 @@ def privacy():
 def health_check():
     """Health check endpoint"""
     return 'ok'
+
+# Add after_request handler to add version header
+@app.after_request
+def add_version_header(response):
+    response.headers['X-UpVRt-Version'] = VERSION
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True) 
