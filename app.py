@@ -324,9 +324,9 @@ def privacy():
     return render_template('privacy.html', current_date=datetime.now().strftime('%B %d, %Y'))
 
 @app.route('/upvrt/health')
-def health():
-    """Health check endpoint for monitoring"""
-    return 'ok', 200
+def health_check():
+    """Health check endpoint"""
+    return 'ok'
 
 if __name__ == '__main__':
     app.run(debug=True) 
