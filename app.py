@@ -36,7 +36,7 @@ app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
 @app.before_request
 def before_request():
     session.permanent = True  # Set session to use PERMANENT_SESSION_LIFETIME
-    if 'user_data' not in session and request.endpoint not in ['login', 'callback', 'index', 'tos', 'privacy', 'static']:
+    if 'user_data' not in session and request.endpoint not in ['login', 'callback', 'index', 'tos', 'privacy', 'static', 'health_check']:
         return redirect(url_for('login'))
 
 @app.route('/upvrt/check_auth')
