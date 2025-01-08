@@ -10,5 +10,5 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt gunicorn
 COPY . .
 
-# Default command (can be overridden in docker-compose.yml)
-CMD ["gunicorn", "--bind", "0.0.0.0:7001", "wsgi:app"] 
+# Run with unbuffered Python output and proper gunicorn logging
+CMD ["python", "-u", "-m", "gunicorn", "--bind", "0.0.0.0:7001", "--access-logfile=-", "--error-logfile=-", "--log-level=info", "--capture-output", "wsgi:app"] 
