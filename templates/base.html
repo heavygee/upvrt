@@ -61,7 +61,7 @@
     </div>
 
     <div class="version-info">
-        <span title="{{ commit_message }}">UpVRt v{{ version }}</span>
+        <span title="Changes: {{ commit_message.split('(v')[0].strip() }}">UpVRt v{{ version }}</span>
     </div>
 
     {% block scripts %}{% endblock %}
