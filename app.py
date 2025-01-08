@@ -102,6 +102,9 @@ app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
 @app.before_request
 def before_request():
     session.permanent = True  # Set session to use PERMANENT_SESSION_LIFETIME
+    # Log all requests except static files
+    if not request.path.startswith('/upvrt/static/'):
+        logger.info(f"Request: {request.method} {request.path} from {request.remote_addr}")
     if 'user_data' not in session and request.endpoint not in ['login', 'callback', 'index', 'tos', 'privacy', 'static', 'health_check']:
         return redirect(url_for('login'))
 
@@ -247,6 +250,20 @@ def process_video_with_progress(input_path, output_path, task_id):
         process.wait()
         
         if process.returncode == 0:
+            # Check if output file exists and is under target size
+            if not os.path.exists(output_path):
+                error = "Output file was not created"
+                logger.error(f"Video processing failed for task {task_id}: {error}")
+                progress.fail(error)
+                return False
+                
+            output_size = os.path.getsize(output_path)
+            if output_size > TARGET_SIZE_BYTES:
+                error = f"Output file too large: {output_size/1024/1024:.2f}MB"
+                logger.error(f"Video processing failed for task {task_id}: {error}")
+                progress.fail(error)
+                return False
+                
             logger.info(f"Video processing completed successfully for task {task_id}")
             progress.complete()
             return True
@@ -399,31 +416,40 @@ def get_progress(task_id):
 @app.route('/upvrt/upload', methods=['POST'])
 @login_required
 def upload_video():
+    logger.info(f"Upload attempt from user {current_user.id} ({current_user.name})")
     if 'video' not in request.files:
+        logger.error("No video file in request")
         return 'No video file uploaded', 400
         
     file = request.files['video']
     channel_id = request.form.get('channel_id')
     
     if not file or not channel_id:
+        logger.error("Missing required fields")
         return 'Missing required fields', 400
         
     if not file.filename.endswith('.mp4'):
+        logger.error(f"Invalid file type: {file.filename}")
         return 'Only MP4 files are allowed', 400
         
     filename = secure_filename(file.filename)
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     output_path = os.path.join(UPLOAD_FOLDER, f'compressed_{filename}')
     
+    logger.info(f"Saving uploaded file: {filename}")
     file.save(input_path)
     
     # Check file size (500MB limit)
-    if os.path.getsize(input_path) > 500 * 1024 * 1024:
+    file_size = os.path.getsize(input_path)
+    logger.info(f"File size: {file_size / (1024*1024):.2f}MB")
+    if file_size > 500 * 1024 * 1024:
+        logger.error(f"File too large: {file_size / (1024*1024):.2f}MB")
         os.remove(input_path)
         return 'Please upload videos under 500MB. Larger files may result in poor quality when compressed to a 10MB 720p file.', 400
     
     # Generate task ID and start processing in background
     task_id = str(uuid.uuid4())
+    logger.info(f"Starting task {task_id} for file {filename}")
     
     def process_and_upload():
         try:

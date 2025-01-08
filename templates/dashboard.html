@@ -210,6 +210,14 @@
                 processingProgress = PROGRESS_CONFIG.process;
                 postingProgress = PROGRESS_CONFIG.post;
                 totalProgress = 100;
+            } else if (stage === 'failed') {
+                // Show error in status div
+                const statusDiv = document.getElementById('upload-status');
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = 'Upload failed: ' + (progress.error || 'Unknown error');
+                statusDiv.style.display = 'block';
+                document.getElementById('progress-container').style.display = 'none';
+                return;
             }
             
             progressChart.data.datasets[0].data = [
