@@ -90,6 +90,11 @@ app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(hours=24)
 app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
 
+@app.after_request
+def add_version_header(response):
+    response.headers['X-UpVRt-Version'] = VERSION
+    return response
+
 @app.before_request
 def before_request():
     session.permanent = True  # Set session to use PERMANENT_SESSION_LIFETIME
@@ -462,12 +467,6 @@ def privacy():
 def health_check():
     """Health check endpoint"""
     return 'ok'
-
-# Add after_request handler to add version header
-@app.after_request
-def add_version_header(response):
-    response.headers['X-UpVRt-Version'] = VERSION
-    return response
 
 if __name__ == '__main__':
     app.run(debug=True) 
