@@ -5,10 +5,12 @@
 2. Ask any clarifying questions if needed
 3. Make the fix using appropriate tools
 4. Commit and push with a descriptive message
-5. Monitor GitHub Actions workflows
-6. Deploy changes:
-   - For local testing: `docker build -t upvrt-test . && docker-compose restart upvrt`
-   - For production: Wait for GitHub Actions to publish the image
+5. Deploy changes:
+   - For local production: `docker build -t upvrt-test . && docker-compose restart upvrt`
+   - For remote production: Wait for GitHub Actions to publish the image
+   
+# Important: ALWAYS run the local deployment step after pushing to GitHub
+# This ensures the local container at port 7001 is running the same code that was just pushed
    
 # Example:
 # User: "quick fix, change IntroVRT to IntroVRt on login page"
@@ -17,5 +19,5 @@
 # 2. Make the change
 # 3. Commit with message "Fix case typo in server name (IntroVRT -> IntroVRt)"
 # 4. Push to GitHub
-# 5. Monitor workflows
-# 6. Rebuild and restart local container for testing 
+# 5. Rebuild and restart local container immediately
+# 6. Monitor workflows for remote deployment 
