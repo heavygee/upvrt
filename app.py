@@ -151,13 +151,19 @@ def get_video_duration(input_path):
 def process_video_with_progress(input_path, output_path, task_id):
     """Process video using FFmpeg with progress tracking."""
     try:
+        logger.info(f"Starting video processing for task {task_id}")
+        logger.info(f"Input path: {input_path}")
+        logger.info(f"Output path: {output_path}")
+        
         duration = get_video_duration(input_path)
         if not duration:
+            logger.error(f"Could not determine video duration for task {task_id}")
             tasks[task_id].fail("Could not determine video duration")
             return False
 
         progress = FFmpegProgress(duration)
         tasks[task_id] = progress
+        logger.info(f"Video duration: {duration} seconds")
 
         watermark = "/app/assets/watermark.png"
         
@@ -174,16 +180,19 @@ def process_video_with_progress(input_path, output_path, task_id):
         stream_info = video_info.get('streams', [{}])[0]
         video_width = stream_info.get('width', 1280)
         video_height = stream_info.get('height', 720)
+        logger.info(f"Original video dimensions: {video_width}x{video_height}")
         
         # Calculate bitrate based on target size
         file_size = os.path.getsize(input_path)
         audio_bitrate_bps = 96 * 1024  # 96kbps for audio
         total_bitrate_bps = int((TARGET_SIZE_BYTES * 8) / duration)
         video_bitrate_bps = total_bitrate_bps - audio_bitrate_bps
+        logger.info(f"Calculated bitrates - Total: {total_bitrate_bps/1024:.2f}kbps, Video: {video_bitrate_bps/1024:.2f}kbps, Audio: {audio_bitrate_bps/1024:.2f}kbps")
         
         # Set minimum video bitrate
         min_video_bitrate_bps = 300 * 1024  # 300kbps minimum
         if video_bitrate_bps < min_video_bitrate_bps:
+            logger.info(f"Adjusting video bitrate to minimum: {min_video_bitrate_bps/1024:.2f}kbps")
             video_bitrate_bps = min_video_bitrate_bps
         
         # Determine if video is portrait or landscape
@@ -195,6 +204,7 @@ def process_video_with_progress(input_path, output_path, task_id):
         watermark_height = int(watermark_width * 9 / 16)  # Maintain 16:9 aspect ratio
         
         # Process video with FFmpeg and capture progress
+        logger.info("Starting FFmpeg processing")
         process = subprocess.Popen([
             'ffmpeg', '-i', input_path, '-i', watermark,
             '-filter_complex', f'[0:v]scale={scale_dimensions}[v];[1:v]scale={watermark_width}:{watermark_height}[wm];[v][wm]overlay=W-w-10:H-h-10:format=auto:alpha=0.7',
@@ -223,21 +233,25 @@ def process_video_with_progress(input_path, output_path, task_id):
             if match:
                 time_ms = int(match.group(1)) / 1000000.0  # Convert microseconds to seconds
                 progress.update(time_ms)
+                if int(time_ms) % 5 == 0:  # Log progress every 5 seconds
+                    logger.info(f"Processing progress: {progress.percent:.1f}% ({time_ms:.1f}s / {duration:.1f}s)")
 
         process.wait()
         
         if process.returncode == 0:
+            logger.info(f"Video processing completed successfully for task {task_id}")
             progress.complete()
             return True
         else:
             error = process.stderr.read() if process.stderr else "Unknown error"
+            logger.error(f"Video processing failed for task {task_id}: {error}")
             progress.fail(error)
             return False
             
     except Exception as e:
+        logger.error(f"Error processing video for task {task_id}: {str(e)}", exc_info=True)
         if task_id in tasks:
             tasks[task_id].fail(str(e))
-        print(f"Error processing video: {e}")
         return False
 
 class User(UserMixin):
