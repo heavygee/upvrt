@@ -106,7 +106,7 @@
         <div class="upload-form">
             <form id="upload-form" action="{{ url_for('upload_video') }}" method="post" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label for="video" class="form-label">Select Video (MP4, max 500MB)</label>
+                    <label for="video" class="form-label">Select Video (MP4, max 100MB)</label>
                     <input type="file" class="form-control" id="video" name="video" accept="video/mp4" required>
                 </div>
                 <div class="mb-3">
@@ -251,9 +251,9 @@
             
             // Check file size
             const videoFile = document.getElementById('video').files[0];
-            if (videoFile.size > 500 * 1024 * 1024) {
+            if (videoFile.size > 100 * 1024 * 1024) {
                 statusDiv.className = 'alert alert-danger';
-                statusDiv.textContent = 'Please upload videos under 500MB. Larger files may result in poor quality when compressed to a 10MB 720p file.';
+                statusDiv.textContent = 'Please upload videos under 100MB. Larger files may result in poor quality when compressed to a 10MB 720p file.';
                 statusDiv.style.display = 'block';
                 return false;
             }

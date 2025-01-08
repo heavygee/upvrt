@@ -439,13 +439,13 @@ def upload_video():
     logger.info(f"Saving uploaded file: {filename}")
     file.save(input_path)
     
-    # Check file size (500MB limit)
+    # Check file size (100MB limit)
     file_size = os.path.getsize(input_path)
     logger.info(f"File size: {file_size / (1024*1024):.2f}MB")
-    if file_size > 500 * 1024 * 1024:
+    if file_size > 100 * 1024 * 1024:
         logger.error(f"File too large: {file_size / (1024*1024):.2f}MB")
         os.remove(input_path)
-        return 'Please upload videos under 500MB. Larger files may result in poor quality when compressed to a 10MB 720p file.', 400
+        return 'Please upload videos under 100MB. Larger files may result in poor quality when compressed to a 10MB 720p file.', 400
     
     # Generate task ID and start processing in background
     task_id = str(uuid.uuid4())
