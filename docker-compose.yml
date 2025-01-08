@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  upvrt:
+    build: .
+    container_name: upvrt
+    restart: unless-stopped
+    ports:
+      - "7001:7001"
+    command: gunicorn --bind 0.0.0.0:7001 wsgi:app
+    volumes:
+      - ./uploads:/app/uploads
+      - ./assets:/app/assets
+      - ./static:/app/static
+    env_file:
+      - .env 

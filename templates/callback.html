@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Complete</title>
+    <script>
+        window.onload = function() {
+            var success = {{ success|tojson }};
+            {% if error %}
+            var error = {{ error|tojson }};
+            {% endif %}
+            
+            if (success) {
+                // Notify parent window of success and redirect
+                if (window.opener) {
+                    window.opener.postMessage('oauth-success', window.location.origin);
+                    window.opener.location.href = '{{ url_for("dashboard") }}';
+                    window.close();
+                } else {
+                    window.location.href = '{{ url_for("dashboard") }}';
+                }
+            } else {
+                // Show error and provide a way to close the window
+                document.getElementById('error-message').style.display = 'block';
+                {% if error %}
+                document.getElementById('error-text').textContent = error;
+                {% else %}
+                document.getElementById('error-text').textContent = 'An unknown error occurred';
+                {% endif %}
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #36393f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .error-box {
+            background-color: #2f3136;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .close-button {
+            background-color: #7289da;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        .close-button:hover {
+            background-color: #677bc4;
+        }
+    </style>
+</head>
+<body>
+    <div id="error-message" class="error-box">
+        <h3>Authentication Error</h3>
+        <p id="error-text"></p>
+        <button class="close-button" onclick="window.close()">Close Window</button>
+    </div>
+</body>
+</html> 
