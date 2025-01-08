@@ -197,10 +197,12 @@
                 uploadProgress = progress * (PROGRESS_CONFIG.upload / 100);
                 totalProgress = uploadProgress;
             } else if (stage === 'processing') {
+                // Keep upload progress at 100% and add processing progress
                 uploadProgress = PROGRESS_CONFIG.upload;
                 processingProgress = progress * (PROGRESS_CONFIG.process / 100);
                 totalProgress = uploadProgress + processingProgress;
             } else if (stage === 'posting') {
+                // Keep upload and processing progress at 100% and add posting progress
                 uploadProgress = PROGRESS_CONFIG.upload;
                 processingProgress = PROGRESS_CONFIG.process;
                 postingProgress = progress * (PROGRESS_CONFIG.post / 100);
@@ -211,7 +213,7 @@
                 postingProgress = PROGRESS_CONFIG.post;
                 totalProgress = 100;
             } else if (stage === 'failed') {
-                // Show error in status div
+                // Show error in status div but keep the current progress
                 const statusDiv = document.getElementById('upload-status');
                 statusDiv.className = 'alert alert-danger';
                 statusDiv.textContent = 'Upload failed: ' + (progress.error || 'Unknown error');
@@ -287,14 +289,19 @@
                             if (progress.status === 'completed') {
                                 updateProgress('complete', 100);
                                 statusDiv.className = 'alert alert-success';
-                                statusDiv.textContent = 'Video uploaded successfully';
+                                let successMessage = 'Video uploaded successfully!';
+                                if (progress.message_link) {
+                                    successMessage += ` <a href="${progress.message_link}" target="_blank">View on Discord</a>`;
+                                }
+                                statusDiv.innerHTML = successMessage;
                                 statusDiv.style.display = 'block';
                                 form.reset();
                                 break;
                             } else if (progress.status === 'failed') {
-                                updateProgress('failed', 0);
+                                updateProgress('failed', progress.percent);
                                 throw new Error(progress.error || 'Processing failed');
                             } else {
+                                // Don't reset progress between stages
                                 updateProgress(progress.stage, progress.percent);
                             }
                             

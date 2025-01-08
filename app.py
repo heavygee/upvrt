@@ -57,6 +57,7 @@ class FFmpegProgress:
         self.stage = 'processing'  # uploading, processing, posting, complete, failed
         self.percent = 0
         self.error = None
+        self.message_link = None
 
     def update(self, time):
         self.current_time = time
@@ -67,10 +68,11 @@ class FFmpegProgress:
         if percent is not None:
             self.percent = percent
 
-    def complete(self):
+    def complete(self, message_link=None):
         self.status = 'completed'
         self.percent = 100
         self.stage = 'complete'
+        self.message_link = message_link
 
     def fail(self, error):
         self.status = 'failed'
@@ -410,7 +412,8 @@ def get_progress(task_id):
         'status': progress.status,
         'stage': progress.stage,
         'percent': progress.percent,
-        'error': progress.error
+        'error': progress.error,
+        'message_link': progress.message_link
     })
 
 @app.route('/upvrt/upload', methods=['POST'])
@@ -484,9 +487,13 @@ def upload_video():
                     tasks[task_id].fail(f'Error uploading to Discord: {response.text}')
                     return
                 
-            tasks[task_id].complete()
+                # Get message link
+                message_data = response.json()
+                message_link = f"https://discord.com/channels/{GUILD_ID}/{channel_id}/{message_data['id']}"
+                tasks[task_id].complete(message_link)
             
         except Exception as e:
+            logger.error(f"Error in process_and_upload: {str(e)}", exc_info=True)
             tasks[task_id].fail(str(e))
         finally:
             # Clean up files
