@@ -8,8 +8,54 @@ import subprocess
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
+import threading
+import uuid
+import re
+import json
+import configparser
 
 load_dotenv()
+
+# Get progress settings from environment variables
+PROGRESS_CONFIG = {
+    'upload_percent': float(os.getenv('PROGRESS_UPLOAD_PERCENT', 50.0)),
+    'process_percent': float(os.getenv('PROGRESS_PROCESS_PERCENT', 45.0)),
+    'post_percent': float(os.getenv('PROGRESS_POST_PERCENT', 5.0)),
+    'chart_size': int(os.getenv('PROGRESS_CHART_SIZE', 200)),
+    'cutout': int(os.getenv('PROGRESS_CHART_CUTOUT', 15)),
+    'opacity': float(os.getenv('PROGRESS_CHART_OPACITY', 0.9))
+}
+
+# Global dictionary to store task progress
+tasks = {}
+
+class FFmpegProgress:
+    def __init__(self, duration):
+        self.duration = duration
+        self.current_time = 0
+        self.status = 'processing'
+        self.stage = 'processing'  # uploading, processing, posting, complete, failed
+        self.percent = 0
+        self.error = None
+
+    def update(self, time):
+        self.current_time = time
+        self.percent = min((time / self.duration) * 100, 100)
+
+    def set_stage(self, stage, percent=None):
+        self.stage = stage
+        if percent is not None:
+            self.percent = percent
+
+    def complete(self):
+        self.status = 'completed'
+        self.percent = 100
+        self.stage = 'complete'
+
+    def fail(self, error):
+        self.status = 'failed'
+        self.error = error
+        self.stage = 'failed'
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -66,22 +112,45 @@ TARGET_SIZE_BYTES = 10 * 1000 * 950  # Discord upload size limit (slightly under
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-def process_video(input_path, output_path):
-    """Process video using advanced FFmpeg settings."""
+def get_video_duration(input_path):
+    """Get video duration using ffprobe."""
     try:
-        watermark = "/app/assets/watermark.png"
-        # Get video duration and size
         probe = subprocess.run([
             'ffprobe', '-v', 'error',
-            '-select_streams', 'v:0',
-            '-show_entries', 'stream=width,height,duration:format=duration',
+            '-show_entries', 'format=duration',
             '-of', 'json',
             input_path
         ], capture_output=True, text=True, check=True)
         
-        import json
+        duration = float(json.loads(probe.stdout)['format']['duration'])
+        return duration
+    except Exception as e:
+        print(f"Error getting video duration: {e}")
+        return None
+
+def process_video_with_progress(input_path, output_path, task_id):
+    """Process video using FFmpeg with progress tracking."""
+    try:
+        duration = get_video_duration(input_path)
+        if not duration:
+            tasks[task_id].fail("Could not determine video duration")
+            return False
+
+        progress = FFmpegProgress(duration)
+        tasks[task_id] = progress
+
+        watermark = "/app/assets/watermark.png"
+        
+        # Get video info for scaling
+        probe = subprocess.run([
+            'ffprobe', '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height',
+            '-of', 'json',
+            input_path
+        ], capture_output=True, text=True, check=True)
+        
         video_info = json.loads(probe.stdout)
-        duration = float(video_info.get('format', {}).get('duration', 0))
         stream_info = video_info.get('streams', [{}])[0]
         video_width = stream_info.get('width', 1280)
         video_height = stream_info.get('height', 720)
@@ -96,7 +165,7 @@ def process_video(input_path, output_path):
         min_video_bitrate_bps = 300 * 1024  # 300kbps minimum
         if video_bitrate_bps < min_video_bitrate_bps:
             video_bitrate_bps = min_video_bitrate_bps
-            
+        
         # Determine if video is portrait or landscape
         is_portrait = video_height > video_width
         scale_dimensions = "720:1280" if is_portrait else "1280:720"
@@ -105,8 +174,8 @@ def process_video(input_path, output_path):
         watermark_width = int(1280 * 0.2) if not is_portrait else int(720 * 0.2)
         watermark_height = int(watermark_width * 9 / 16)  # Maintain 16:9 aspect ratio
         
-        # Process video with FFmpeg
-        subprocess.run([
+        # Process video with FFmpeg and capture progress
+        process = subprocess.Popen([
             'ffmpeg', '-i', input_path, '-i', watermark,
             '-filter_complex', f'[0:v]scale={scale_dimensions}[v];[1:v]scale={watermark_width}:{watermark_height}[wm];[v][wm]overlay=W-w-10:H-h-10:format=auto:alpha=0.7',
             '-c:v', 'libx264',
@@ -119,11 +188,35 @@ def process_video(input_path, output_path):
             '-r', '30',
             '-c:a', 'aac',
             '-b:a', '96k',
+            '-progress', 'pipe:1',
             output_path
-        ], check=True)
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+
+        # Parse FFmpeg progress output
+        time_pattern = re.compile(r'out_time_ms=(\d+)')
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            
+            match = time_pattern.search(line)
+            if match:
+                time_ms = int(match.group(1)) / 1000000.0  # Convert microseconds to seconds
+                progress.update(time_ms)
+
+        process.wait()
         
-        return True
-    except subprocess.CalledProcessError as e:
+        if process.returncode == 0:
+            progress.complete()
+            return True
+        else:
+            error = process.stderr.read() if process.stderr else "Unknown error"
+            progress.fail(error)
+            return False
+            
+    except Exception as e:
+        if task_id in tasks:
+            tasks[task_id].fail(str(e))
         print(f"Error processing video: {e}")
         return False
 
@@ -236,7 +329,24 @@ def dashboard():
     channels = channels_response.json()
     text_channels = [c for c in channels if c['type'] == 0]  # 0 is text channel
     
-    return render_template('dashboard.html', channels=text_channels)
+    return render_template('dashboard.html', 
+                         channels=text_channels,
+                         progress_config=PROGRESS_CONFIG)
+
+@app.route('/upvrt/progress/<task_id>')
+@login_required
+def get_progress(task_id):
+    """Get the progress of a video processing task."""
+    if task_id not in tasks:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    progress = tasks[task_id]
+    return jsonify({
+        'status': progress.status,
+        'stage': progress.stage,
+        'percent': progress.percent,
+        'error': progress.error
+    })
 
 @app.route('/upvrt/upload', methods=['POST'])
 @login_required
@@ -259,61 +369,63 @@ def upload_video():
     
     file.save(input_path)
     
-    # Check file size (100MB limit)
-    if os.path.getsize(input_path) > 100 * 1024 * 1024:
+    # Check file size (500MB limit)
+    if os.path.getsize(input_path) > 500 * 1024 * 1024:
         os.remove(input_path)
-        return 'File too large (max 100MB)', 400
+        return 'Please upload videos under 500MB. Larger files may result in poor quality when compressed to a 10MB 720p file.', 400
     
-    # Process video using our enhanced function
-    if not process_video(input_path, output_path):
-        os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-        return 'Error processing video', 500
+    # Generate task ID and start processing in background
+    task_id = str(uuid.uuid4())
     
-    # Check if compressed file is under target size
-    if os.path.getsize(output_path) > TARGET_SIZE_BYTES:
-        os.remove(input_path)
-        os.remove(output_path)
-        return 'Could not compress video under 10MB', 400
-    
-    # Upload to Discord
-    headers = {
-        'Authorization': f'Bot {DISCORD_BOT_TOKEN}'
-    }
-    
-    try:
-        with open(output_path, 'rb') as f:
-            files = {
-                'file': (filename, f)
+    def process_and_upload():
+        try:
+            # Process video
+            if not process_video_with_progress(input_path, output_path, task_id):
+                return
+            
+            # Check if compressed file is under target size
+            if os.path.getsize(output_path) > TARGET_SIZE_BYTES:
+                tasks[task_id].fail('Could not compress video under 10MB')
+                return
+            
+            # Upload to Discord
+            tasks[task_id].set_stage('posting', 0)
+            headers = {
+                'Authorization': f'Bot {DISCORD_BOT_TOKEN}'
             }
-            message = f"Here's your compressed video! <@{current_user.id}>"
-            response = requests.post(
-                f'https://discord.com/api/channels/{channel_id}/messages',
-                headers=headers,
-                data={'content': message},
-                files=files
-            )
             
-            print(f"Discord API Response: Status={response.status_code}, Content={response.text}")
+            with open(output_path, 'rb') as f:
+                files = {
+                    'file': (filename, f)
+                }
+                message = f"Here's your compressed video! <@{current_user.id}>"
+                response = requests.post(
+                    f'https://discord.com/api/channels/{channel_id}/messages',
+                    headers=headers,
+                    data={'content': message},
+                    files=files
+                )
+                
+                if response.status_code != 200:
+                    tasks[task_id].fail(f'Error uploading to Discord: {response.text}')
+                    return
+                
+            tasks[task_id].complete()
             
-            if response.status_code != 200:
-                print(f"Error uploading to Discord: {response.text}")
-                return f'Error uploading to Discord: {response.text}', 500
-    except Exception as e:
-        print(f"Exception during upload: {str(e)}")
-        return f'Error during upload: {str(e)}', 500
-    finally:
-        # Clean up files
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        except Exception as e:
+            tasks[task_id].fail(str(e))
+        finally:
+            # Clean up files
+            if os.path.exists(input_path):
+                os.remove(input_path)
+            if os.path.exists(output_path):
+                os.remove(output_path)
     
-    if response.status_code == 200:
-        return 'Video uploaded successfully'
-    else:
-        return 'Error uploading to Discord', 500
+    # Start processing thread
+    thread = threading.Thread(target=process_and_upload)
+    thread.start()
+    
+    return jsonify({'task_id': task_id})
 
 @app.route('/upvrt/tos')
 def tos():

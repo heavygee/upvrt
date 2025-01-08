@@ -24,6 +24,7 @@
     <meta name="twitter:image" content="https://www.introvrtlounge.com{{ url_for('static', filename='og-image.png') }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             background-color: #36393f;
@@ -57,6 +58,46 @@
             border-radius: 5px;
             display: none;
         }
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .chart-container {
+            position: relative;
+            width: {{ progress_config.chart_size }}px;
+            height: {{ progress_config.chart_size }}px;
+            margin: 0 auto;
+        }
+        .chart-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("{{ url_for('static', filename='progress-bg.png') }}");
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+        }
+        canvas#progressChart {
+            position: relative;
+            z-index: 2;
+        }
+        .progress-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2em;
+            font-weight: bold;
+            z-index: 3;
+        }
+        .progress-stage {
+            margin-top: 10px;
+            font-size: 1.1em;
+        }
     </style>
 </head>
 <body>
@@ -65,7 +106,7 @@
         <div class="upload-form">
             <form id="upload-form" action="{{ url_for('upload_video') }}" method="post" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label for="video" class="form-label">Select Video (MP4, max 100MB)</label>
+                    <label for="video" class="form-label">Select Video (MP4, max 500MB)</label>
                     <input type="file" class="form-control" id="video" name="video" accept="video/mp4" required>
                 </div>
                 <div class="mb-3">
@@ -80,62 +121,197 @@
                 <button type="submit" class="btn btn-primary">Upload & Process</button>
             </form>
             <div id="upload-status" class="alert"></div>
+            
+            <div id="progress-container" class="progress-container">
+                <div class="chart-container">
+                    <div class="chart-background"></div>
+                    <canvas id="progressChart"></canvas>
+                    <div id="progress-label" class="progress-label">0%</div>
+                </div>
+                <div id="progress-stage" class="progress-stage">Uploading...</div>
+            </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('upload-form').onsubmit = function(e) {
+        let progressChart = null;
+        const PROGRESS_CONFIG = {
+            upload: {{ progress_config.upload_percent }},
+            process: {{ progress_config.process_percent }},
+            post: {{ progress_config.post_percent }},
+            opacity: {{ progress_config.opacity }},
+            cutout: {{ progress_config.cutout }}
+        };
+        
+        function initializeChart() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [0, 0, 0, 100], // [upload, processing, posting, remaining]
+                        backgroundColor: [
+                            `rgba(114, 137, 218, ${PROGRESS_CONFIG.opacity})`,  // Upload
+                            `rgba(88, 101, 242, ${PROGRESS_CONFIG.opacity})`,   // Processing
+                            `rgba(60, 69, 165, ${PROGRESS_CONFIG.opacity})`,    // Posting
+                            `rgba(47, 49, 54, ${PROGRESS_CONFIG.opacity * 0.95})`  // Remaining
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: `${PROGRESS_CONFIG.cutout}%`,
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    animation: {
+                        duration: 500
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateProgress(stage, progress) {
+            if (!progressChart) {
+                initializeChart();
+            }
+            
+            let uploadProgress = 0;
+            let processingProgress = 0;
+            let postingProgress = 0;
+            let totalProgress = 0;
+            
+            // Calculate progress based on stage and percentage
+            if (stage === 'uploading') {
+                uploadProgress = progress * (PROGRESS_CONFIG.upload / 100);
+                totalProgress = uploadProgress;
+            } else if (stage === 'processing') {
+                uploadProgress = PROGRESS_CONFIG.upload;
+                processingProgress = progress * (PROGRESS_CONFIG.process / 100);
+                totalProgress = uploadProgress + processingProgress;
+            } else if (stage === 'posting') {
+                uploadProgress = PROGRESS_CONFIG.upload;
+                processingProgress = PROGRESS_CONFIG.process;
+                postingProgress = progress * (PROGRESS_CONFIG.post / 100);
+                totalProgress = uploadProgress + processingProgress + postingProgress;
+            } else if (stage === 'complete') {
+                uploadProgress = PROGRESS_CONFIG.upload;
+                processingProgress = PROGRESS_CONFIG.process;
+                postingProgress = PROGRESS_CONFIG.post;
+                totalProgress = 100;
+            }
+            
+            progressChart.data.datasets[0].data = [
+                uploadProgress,
+                processingProgress,
+                postingProgress,
+                100 - (uploadProgress + processingProgress + postingProgress)
+            ];
+            progressChart.update();
+            
+            document.getElementById('progress-label').textContent = `${Math.round(totalProgress)}%`;
+            
+            const stageText = {
+                'uploading': 'Uploading to server...',
+                'processing': 'Processing video...',
+                'posting': 'Posting to Discord...',
+                'complete': 'Complete!',
+                'failed': 'Failed!'
+            };
+            document.getElementById('progress-stage').textContent = stageText[stage] || stage;
+        }
+
+        document.getElementById('upload-form').onsubmit = async function(e) {
             e.preventDefault();
             
             const form = e.target;
             const formData = new FormData(form);
             const statusDiv = document.getElementById('upload-status');
             const submitButton = form.querySelector('button[type="submit"]');
+            const progressContainer = document.getElementById('progress-container');
             
             // Check file size
             const videoFile = document.getElementById('video').files[0];
-            if (videoFile.size > 100 * 1024 * 1024) {
+            if (videoFile.size > 500 * 1024 * 1024) {
                 statusDiv.className = 'alert alert-danger';
-                statusDiv.textContent = 'File is too large. Maximum size is 100MB.';
+                statusDiv.textContent = 'Please upload videos under 500MB. Larger files may result in poor quality when compressed to a 10MB 720p file.';
                 statusDiv.style.display = 'block';
                 return false;
             }
             
-            // Disable form and show loading
+            // Disable form and show progress
             submitButton.disabled = true;
-            statusDiv.className = 'alert alert-info';
-            statusDiv.textContent = 'Uploading and processing video... Please wait.';
-            statusDiv.style.display = 'block';
+            statusDiv.style.display = 'none';
+            progressContainer.style.display = 'block';
             
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                credentials: 'include'
-            })
-            .then(response => {
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        window.location.href = '{{ url_for("login") }}';
-                        throw new Error('Authentication required');
+            try {
+                // Start upload with progress tracking
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        updateProgress('uploading', percent);
                     }
-                    return response.text().then(text => { throw new Error(text) });
-                }
-                return response.text();
-            })
-            .then(result => {
-                statusDiv.className = 'alert alert-success';
-                statusDiv.textContent = result;
-                form.reset();
-            })
-            .catch(error => {
+                };
+                
+                xhr.onload = async function() {
+                    if (xhr.status === 200) {
+                        // Upload complete, now track processing
+                        updateProgress('processing', 0);
+                        
+                        // Start polling for processing progress
+                        const taskId = JSON.parse(xhr.responseText).task_id;
+                        while (true) {
+                            const response = await fetch(`/upvrt/progress/${taskId}`);
+                            const progress = await response.json();
+                            
+                            if (progress.status === 'completed') {
+                                updateProgress('complete', 100);
+                                statusDiv.className = 'alert alert-success';
+                                statusDiv.textContent = 'Video uploaded successfully';
+                                statusDiv.style.display = 'block';
+                                form.reset();
+                                break;
+                            } else if (progress.status === 'failed') {
+                                updateProgress('failed', 0);
+                                throw new Error(progress.error || 'Processing failed');
+                            } else {
+                                updateProgress(progress.stage, progress.percent);
+                            }
+                            
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    } else {
+                        throw new Error(xhr.responseText || 'Upload failed');
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    throw new Error('Network error occurred');
+                };
+                
+                xhr.open('POST', form.action, true);
+                xhr.send(formData);
+                
+            } catch (error) {
                 statusDiv.className = 'alert alert-danger';
                 statusDiv.textContent = error.message || 'An error occurred. Please try again.';
-            })
-            .finally(() => {
-                submitButton.disabled = false;
                 statusDiv.style.display = 'block';
-            });
+                progressContainer.style.display = 'none';
+            } finally {
+                submitButton.disabled = false;
+            }
         };
+
+        // Initialize chart on page load
+        initializeChart();
     </script>
 </body>
 </html> 

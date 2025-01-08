@@ -1,0 +1,21 @@
+# Quick Fix Workflow
+# When the user says "quick fix, <description>", follow these steps:
+
+1. Parse and understand the fix request
+2. Ask any clarifying questions if needed
+3. Make the fix using appropriate tools
+4. Commit and push with a descriptive message
+5. Monitor GitHub Actions workflows
+6. Deploy changes:
+   - For local testing: `docker build -t upvrt-test . && docker-compose restart upvrt`
+   - For production: Wait for GitHub Actions to publish the image
+   
+# Example:
+# User: "quick fix, change IntroVRT to IntroVRt on login page"
+# Assistant should:
+# 1. Locate login.html
+# 2. Make the change
+# 3. Commit with message "Fix case typo in server name (IntroVRT -> IntroVRt)"
+# 4. Push to GitHub
+# 5. Monitor workflows
+# 6. Rebuild and restart local container for testing 
