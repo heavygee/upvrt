@@ -4,20 +4,33 @@
 1. Parse and understand the fix request
 2. Ask any clarifying questions if needed
 3. Make the fix using appropriate tools
-4. Commit and push with a descriptive message
-5. Deploy changes:
+4. Update version.py:
+   - MAJOR (1.x.x): Breaking changes
+   - MINOR (x.1.x): New features, backwards compatible
+   - PATCH (x.x.1): Bug fixes, backwards compatible
+5. Commit and push with a descriptive message
+6. Deploy changes:
    - For local production: `docker-compose build upvrt && docker-compose restart upvrt`
    - For remote production: Wait for GitHub Actions to publish the image to DockerHub
    
 # Important: ALWAYS run the local deployment step after pushing to GitHub
 # This ensures the local container at port 7001 is running the same code that was just pushed
+
+# Version Management:
+# - ALWAYS update version.py before pushing changes
+# - Include version bump in commit message (e.g. "Fix login page typo (v1.0.1)")
+# - Version format: MAJOR.MINOR.PATCH
+#   - MAJOR: Breaking changes (e.g. API changes, database schema changes)
+#   - MINOR: New features (e.g. new upload options, new UI elements)
+#   - PATCH: Bug fixes and minor improvements
    
 # Example:
 # User: "quick fix, change IntroVRT to IntroVRt on login page"
 # Assistant should:
 # 1. Locate login.html
 # 2. Make the change
-# 3. Commit with message "Fix case typo in server name (IntroVRT -> IntroVRt)"
-# 4. Push to GitHub
-# 5. Rebuild and restart local container immediately
-# 6. Wait for GitHub Actions to publish to DockerHub 
+# 3. Update version.py to increment PATCH version
+# 4. Commit with message "Fix case typo in server name (IntroVRT -> IntroVRt) (v1.0.1)"
+# 5. Push to GitHub
+# 6. Rebuild and restart local container immediately
+# 7. Wait for GitHub Actions to publish to DockerHub 
