@@ -72,7 +72,8 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/upvrt/*": {
         "origins": ["https://www.introvrtlounge.com"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "expose_headers": ["X-UpVRt-Version"]
     }
 })
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -93,6 +94,7 @@ app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
 @app.after_request
 def add_version_header(response):
     response.headers['X-UpVRt-Version'] = VERSION
+    response.headers.add('Access-Control-Expose-Headers', 'X-UpVRt-Version')
     return response
 
 @app.before_request
