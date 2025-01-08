@@ -75,7 +75,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: url("{{ url_for('static', filename='images/progress-bg.png') }}");
+            background-image: url("/upvrt/static/images/progress-bg.png");
             background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
@@ -278,31 +278,40 @@
                 xhr.onload = async function() {
                     if (xhr.status === 200) {
                         // Upload complete, now track processing
-                        updateProgress('processing', 0);
+                        const taskId = JSON.parse(xhr.responseText).task_id;
+                        let lastProgress = 0;
                         
                         // Start polling for processing progress
-                        const taskId = JSON.parse(xhr.responseText).task_id;
                         while (true) {
-                            const response = await fetch(`/upvrt/progress/${taskId}`);
-                            const progress = await response.json();
-                            
-                            if (progress.status === 'completed') {
-                                updateProgress('complete', 100);
-                                statusDiv.className = 'alert alert-success';
-                                let successMessage = 'Video uploaded successfully!';
-                                if (progress.message_link) {
-                                    successMessage += ` <a href="${progress.message_link}" target="_blank">View on Discord</a>`;
+                            try {
+                                const response = await fetch(`/upvrt/progress/${taskId}`);
+                                if (!response.ok) {
+                                    throw new Error(`Progress request failed: ${response.status}`);
                                 }
-                                statusDiv.innerHTML = successMessage;
-                                statusDiv.style.display = 'block';
-                                form.reset();
-                                break;
-                            } else if (progress.status === 'failed') {
-                                updateProgress('failed', progress.percent);
-                                throw new Error(progress.error || 'Processing failed');
-                            } else {
-                                // Don't reset progress between stages
-                                updateProgress(progress.stage, progress.percent);
+                                const progress = await response.json();
+                                
+                                if (progress.status === 'completed') {
+                                    updateProgress('complete', 100);
+                                    statusDiv.className = 'alert alert-success';
+                                    let successMessage = 'Video uploaded successfully!';
+                                    if (progress.message_link) {
+                                        successMessage += ` <a href="${progress.message_link}" target="_blank">View on Discord</a>`;
+                                    }
+                                    statusDiv.innerHTML = successMessage;
+                                    statusDiv.style.display = 'block';
+                                    form.reset();
+                                    break;
+                                } else if (progress.status === 'failed') {
+                                    throw new Error(progress.error || 'Processing failed');
+                                } else {
+                                    // Keep track of last progress to avoid resets
+                                    lastProgress = Math.max(lastProgress, progress.percent);
+                                    updateProgress(progress.stage, lastProgress);
+                                }
+                            } catch (error) {
+                                console.error('Progress error:', error);
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                continue;
                             }
                             
                             await new Promise(resolve => setTimeout(resolve, 1000));

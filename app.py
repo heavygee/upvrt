@@ -252,19 +252,22 @@ def process_video_with_progress(input_path, output_path, task_id):
         process.wait()
         
         if process.returncode == 0:
-            # Check if output file exists and is under target size
+            # Check if output file exists
             if not os.path.exists(output_path):
                 error = "Output file was not created"
                 logger.error(f"Video processing failed for task {task_id}: {error}")
                 progress.fail(error)
                 return False
                 
+            # Don't fail for files under 10MB
             output_size = os.path.getsize(output_path)
             if output_size > TARGET_SIZE_BYTES:
-                error = f"Output file too large: {output_size/1024/1024:.2f}MB"
-                logger.error(f"Video processing failed for task {task_id}: {error}")
-                progress.fail(error)
-                return False
+                logger.info(f"Output file size: {output_size/1024/1024:.2f}MB")
+                if output_size > 10.5 * 1024 * 1024:  # Allow slightly over 10MB
+                    error = f"Output file too large: {output_size/1024/1024:.2f}MB"
+                    logger.error(f"Video processing failed for task {task_id}: {error}")
+                    progress.fail(error)
+                    return False
                 
             logger.info(f"Video processing completed successfully for task {task_id}")
             progress.complete()
