@@ -222,6 +222,14 @@ def process_video_with_progress(input_path, output_path, task_id):
             output_path
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
+        # Log FFmpeg stderr output in real-time
+        def log_stderr():
+            for line in process.stderr:
+                logger.info(f"FFmpeg: {line.strip()}")
+        stderr_thread = threading.Thread(target=log_stderr)
+        stderr_thread.daemon = True
+        stderr_thread.start()
+
         # Parse FFmpeg progress output
         time_pattern = re.compile(r'out_time_ms=(\d+)')
         while True:
