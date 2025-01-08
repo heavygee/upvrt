@@ -16,6 +16,11 @@
 # Important: ALWAYS run the local deployment step after pushing to GitHub
 # This ensures the local container at port 7001 is running the same code that was just pushed
 
+# CRITICAL RULES:
+# - NEVER use docker-compose down or stop all containers
+# - ONLY build/restart the specific container you're working on
+# - For upvrt, ALWAYS use: docker-compose build upvrt && docker-compose restart upvrt
+   
 # Version Management:
 # - ALWAYS update version.py before pushing changes
 # - Include version bump in commit message (e.g. "Fix login page typo (v1.0.1)")

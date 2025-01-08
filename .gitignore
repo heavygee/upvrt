@@ -63,3 +63,4 @@ config.ini
 # System files
 .DS_Store
 Thumbs.db
+docker-compose-symlinked.yml
