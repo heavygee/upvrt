@@ -272,7 +272,9 @@ def login():
     session['next_url'] = next_url
     
     oauth_url = f'https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={DISCORD_REDIRECT_URI}&response_type=code&scope=identify%20guilds%20guilds.members.read'
-    return render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE)
+    response = make_response(render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE))
+    response.headers['X-UpVRt-Version'] = VERSION
+    return response
 
 @app.route('/upvrt/callback')
 def callback():
