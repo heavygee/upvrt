@@ -6,7 +6,7 @@
 3. Make the fix using appropriate tools
 4. Commit and push with a descriptive message
 5. Deploy changes:
-   - For local production: `docker build -t upvrt-test . && docker-compose restart upvrt`
+   - For local production: `docker-compose build upvrt && docker-compose restart upvrt`
    - For remote production: Wait for GitHub Actions to publish the image
    
 # Important: ALWAYS run the local deployment step after pushing to GitHub
