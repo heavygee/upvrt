@@ -570,5 +570,18 @@ def get_progress(task_id):
         'message_link': progress.message_link
     })
 
+@app.route('/static/favicon.png')
+@app.route('/static/favicon.ico')
+@app.route('/favicon.ico')
+@app.route('/favicon.png')
+def favicon():
+    """Redirect favicon requests to the static URL."""
+    return redirect(f"{app.config['STATIC_URL']}/favicon.png")
+
+@app.route('/upvrt/static/favicon.ico')
+def static_favicon():
+    """Redirect static favicon requests to the static URL."""
+    return redirect(f"{app.config['STATIC_URL']}/favicon.png")
+
 if __name__ == '__main__':
     app.run(debug=True) 

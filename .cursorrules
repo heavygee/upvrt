@@ -10,7 +10,7 @@
    - PATCH (x.x.1): Bug fixes, backwards compatible
 5. Commit and push with a descriptive message
 6. Deploy changes:
-   - For local production: `docker-compose build upvrt && docker-compose restart upvrt`
+   - For local production: `dockerswap upvrt`
    - For remote production: Wait for GitHub Actions to publish the image to DockerHub
    
 # Important: ALWAYS run the local deployment step after pushing to GitHub
@@ -19,7 +19,7 @@
 # CRITICAL RULES:
 # - NEVER use docker-compose down or stop all containers
 # - ONLY build/restart the specific container you're working on
-# - For upvrt, ALWAYS use: docker-compose build upvrt && docker-compose restart upvrt
+# - For container restarts, ALWAYS use: dockerswap containername
    
 # Version Management:
 # - ALWAYS update version.py before pushing changes
