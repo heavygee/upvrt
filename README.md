@@ -166,3 +166,44 @@ You'll need to gather the following values from the Discord Developer Portal:
 ## License
 
 MIT License - see the [LICENSE](LICENSE) file for details. 
+
+## Environment Variables
+
+- `DISCORD_CLIENT_ID`: Discord OAuth2 client ID
+- `DISCORD_CLIENT_SECRET`: Discord OAuth2 client secret
+- `DISCORD_REDIRECT_URI`: OAuth2 redirect URI (e.g., `https://www.introvrtlounge.com/upvrt/callback`)
+- `DISCORD_BOT_TOKEN`: Discord bot token for posting messages
+- `GUILD_ID`: Discord server (guild) ID
+- `STATIC_URL`: Optional URL for serving static assets from a CDN/separate server (e.g., `https://stuff.introvrtlounge.com/images`). If not set, static files will be served from Flask's static folder.
+
+## Progress Configuration
+
+- `PROGRESS_UPLOAD_PERCENT`: Percentage allocated for upload stage (default: 50.0)
+- `PROGRESS_PROCESS_PERCENT`: Percentage allocated for processing stage (default: 45.0)
+- `PROGRESS_POST_PERCENT`: Percentage allocated for posting stage (default: 5.0)
+- `PROGRESS_CHART_SIZE`: Size of progress chart in pixels (default: 200)
+- `PROGRESS_CHART_CUTOUT`: Donut chart cutout percentage (default: 15)
+- `PROGRESS_CHART_OPACITY`: Chart opacity (default: 0.9)
+
+## Static Assets
+
+Static assets (images, favicons, etc.) can be served in two ways:
+
+1. **CDN/External Server**: Set `STATIC_URL` environment variable to serve all static assets from a CDN or separate server
+   - Example: `STATIC_URL=https://stuff.introvrtlounge.com/images`
+   - Assets will be loaded from: `$STATIC_URL/favicon.png`, `$STATIC_URL/progress-bg.png`, etc.
+
+2. **Local Static Files**: If `STATIC_URL` is not set, assets are served from Flask's static folder
+   - Assets should be placed in: `/static/images/`
+   - Accessed via: `/static/images/favicon.png`, `/static/images/progress-bg.png`, etc.
+
+## Development
+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Set up environment variables in `.env`
+3. Run with: `python app.py`
+
+## Production
+
+1. Build Docker image: `docker build -t upvrt .`
+2. Run container: `docker run -p 7001:7001 upvrt` 
