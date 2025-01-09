@@ -502,6 +502,9 @@ def upload_video():
     task_id = str(uuid.uuid4())
     logger.info(f"Starting task {task_id} for file {filename}")
     
+    # Capture user ID before starting background thread
+    user_id = current_user.id
+    
     def process_and_upload():
         try:
             # Process video
@@ -518,7 +521,7 @@ def upload_video():
                 files = {
                     'file': (filename, f)
                 }
-                message = f"Here's your compressed video! <@{current_user.id}>"
+                message = f"Here's your compressed video! <@{user_id}>"
                 response = requests.post(
                     f'https://discord.com/api/channels/{channel_id}/messages',
                     headers=headers,
