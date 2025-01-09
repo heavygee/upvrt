@@ -90,7 +90,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.urandom(24)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['STATIC_FOLDER'] = 'static'
-app.config['STATIC_URL_PATH'] = '/static'
+app.config['STATIC_URL_PATH'] = '/upvrt/static'
 app.config['APPLICATION_ROOT'] = '/upvrt'
 app.config['SESSION_COOKIE_NAME'] = 'upvrt_session'
 app.config['SESSION_COOKIE_SECURE'] = True
