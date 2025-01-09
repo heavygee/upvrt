@@ -554,5 +554,21 @@ def upload_video():
     
     return jsonify({'task_id': task_id})
 
+@app.route('/upvrt/progress/<task_id>')
+@login_required
+def get_progress(task_id):
+    """Get the progress of a video processing task."""
+    if task_id not in tasks:
+        return jsonify({'error': 'Task not found'}), 404
+    
+    progress = tasks[task_id]
+    return jsonify({
+        'status': progress.status,
+        'stage': progress.stage,
+        'percent': progress.percent,
+        'error': progress.error,
+        'message_link': progress.message_link
+    })
+
 if __name__ == '__main__':
     app.run(debug=True) 
