@@ -264,13 +264,10 @@ def process_video_with_progress(input_path, output_path, task_id):
             output_size = os.path.getsize(output_path)
             logger.info(f"Output file size: {output_size/1024/1024:.2f}MB")
             if output_size > TARGET_SIZE_BYTES:
-                if output_size > 10.5 * 1024 * 1024:  # Allow slightly over 10MB
-                    error = f"Output file too large: {output_size/1024/1024:.2f}MB"
-                    logger.error(f"Video processing failed for task {task_id}: {error}")
-                    progress.fail(error)
-                    return False
-                else:
-                    logger.info(f"File slightly over target size but under 10.5MB, proceeding with upload")
+                error = f"Output file too large: {output_size/1024/1024:.2f}MB"
+                logger.error(f"Video processing failed for task {task_id}: {error}")
+                progress.fail(error)
+                return False
             
             logger.info(f"Video processing completed successfully for task {task_id}")
             progress.complete()

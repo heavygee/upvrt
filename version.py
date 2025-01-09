@@ -1,4 +1,4 @@
-VERSION = "1.0.9"
+VERSION = "1.0.10"
 
 # Version format: MAJOR.MINOR.PATCH
 # MAJOR: Breaking changes
