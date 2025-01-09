@@ -132,6 +132,129 @@ app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(hours=24)
 app.config['REMEMBER_COOKIE_PATH'] = '/upvrt/'
 
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+class User(UserMixin):
+    def __init__(self, id, name, discriminator, avatar):
+        self.id = id
+        self.name = name
+        self.discriminator = discriminator
+        self.avatar = avatar
+        
+    def get_id(self):
+        return str(self.id)  # Convert to string for Flask-Login
+        
+    def is_authenticated(self):
+        return True
+        
+    def is_active(self):
+        return True
+
+@login_manager.user_loader
+def load_user(user_id):
+    if 'user_data' not in session:
+        return None
+    data = session['user_data']
+    return User(data['id'], data['username'], data['discriminator'], data['avatar'])
+
+@app.route('/upvrt/')
+def index():
+    return render_template('index.html', version=VERSION, commit_message=COMMIT_MESSAGE)
+
+@app.route('/upvrt/login')
+def login():
+    # Store the original URL the user was trying to access
+    next_url = request.args.get('next', url_for('dashboard'))
+    session['next_url'] = next_url
+    
+    oauth_url = f'https://discord.com/api/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&redirect_uri={DISCORD_REDIRECT_URI}&response_type=code&scope=identify%20guilds%20guilds.members.read'
+    return render_template('login.html', oauth_url=oauth_url, version=VERSION, commit_message=COMMIT_MESSAGE)
+
+@app.route('/upvrt/callback')
+def callback():
+    error = request.args.get('error')
+    if error:
+        return render_template('callback.html', success=False, error=error, version=VERSION, commit_message=COMMIT_MESSAGE)
+        
+    code = request.args.get('code')
+    if not code:
+        return render_template('callback.html', success=False, error='No authorization code received', version=VERSION, commit_message=COMMIT_MESSAGE)
+        
+    try:
+        data = {
+            'client_id': DISCORD_CLIENT_ID,
+            'client_secret': DISCORD_CLIENT_SECRET,
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': DISCORD_REDIRECT_URI,
+            'scope': 'identify guilds guilds.members.read'
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        response = requests.post('https://discord.com/api/oauth2/token', data=data, headers=headers)
+        response.raise_for_status()
+        tokens = response.json()
+        
+        access_token = tokens.get('access_token')
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        
+        user_response = requests.get('https://discord.com/api/users/@me', headers=headers)
+        user_response.raise_for_status()
+        user_data = user_response.json()
+        
+        # Check if user is in the specified guild
+        guilds_response = requests.get('https://discord.com/api/users/@me/guilds', headers=headers)
+        guilds_response.raise_for_status()
+        guilds = guilds_response.json()
+        
+        if not any(g['id'] == GUILD_ID for g in guilds):
+            return render_template('callback.html', 
+                                success=False, 
+                                error="You must be a member of the IntroVRT Lounge Discord server to use this application.",
+                                version=VERSION,
+                                commit_message=COMMIT_MESSAGE)
+        
+        session['user_data'] = user_data
+        session['discord_token'] = access_token
+        
+        user = User(user_data['id'], user_data['username'], user_data.get('discriminator', '0'), user_data.get('avatar'))
+        login_user(user, remember=True, duration=timedelta(hours=24))
+        
+        return render_template('callback.html', success=True, version=VERSION, commit_message=COMMIT_MESSAGE)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"OAuth error: {str(e)}")
+        return render_template('callback.html', 
+                            success=False, 
+                            error="Failed to authenticate with Discord. Please try again.",
+                            version=VERSION,
+                            commit_message=COMMIT_MESSAGE)
+
+@app.route('/upvrt/dashboard')
+@login_required
+def dashboard():
+    # Get available channels
+    headers = {
+        'Authorization': f'Bot {DISCORD_BOT_TOKEN}'
+    }
+    channels_response = requests.get(
+        f'https://discord.com/api/guilds/{GUILD_ID}/channels',
+        headers=headers
+    )
+    channels = channels_response.json()
+    text_channels = [c for c in channels if c['type'] == 0]  # 0 is text channel
+    
+    return render_template('dashboard.html', 
+                         channels=text_channels,
+                         progress_config=PROGRESS_CONFIG,
+                         version=VERSION,
+                         commit_message=COMMIT_MESSAGE)
+
 @app.before_request
 def before_request():
     session.permanent = True  # Set session to use PERMANENT_SESSION_LIFETIME
@@ -163,10 +286,6 @@ def logout():
     logout_user()
     session.clear()
     return redirect(url_for('index'))
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
 
 DISCORD_CLIENT_ID = os.getenv('DISCORD_CLIENT_ID')
 DISCORD_CLIENT_SECRET = os.getenv('DISCORD_CLIENT_SECRET')
